@@ -6,7 +6,7 @@
     "BlockStateRenderShapeMixin",
     "BlockEntityRenderDispatcherMixin",
     "LightmapMixin",
-    "LightmapClearMixin"
+    "BlockLuminanceMixin"
   ],
   "injectors": {
     "defaultRequire": 1
