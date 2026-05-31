@@ -16,18 +16,21 @@ public class ModConfig {
     public List<String> hiddenBlocks = new ArrayList<>();
 
     /**
-     * When true (default): blocks behind/under a hidden block still render, so you
+     * When true (default): blocks under/behind a hidden block still render, so you
      * see the surface underneath instead of a hole into the void.
-     * When false: full see-through (the old "floorless" behaviour).
      */
     public boolean showBlocksUnderneath = true;
 
     /**
-     * When true (default): hidden blocks stop blocking light and a brightness boost
-     * is applied while hiding, so exposed areas are clearly visible.
-     * Note: under Iris shaders, the shader controls lighting — use its brightness.
+     * Lighting while hiding:
+     *  OFF         — no change.
+     *  FULLBRIGHT  — bright, neutral white light (clean visibility).
+     *  NIGHT_VISION— classic night-vision look (slightly tinted).
+     * Both work in vanilla/Sodium; under Iris shaders the shader controls lighting.
      */
-    public boolean fixLighting = true;
+    public LightMode lightMode = LightMode.FULLBRIGHT;
 
     public enum TriggerMode { HOLD, TOGGLE }
+
+    public enum LightMode { OFF, FULLBRIGHT, NIGHT_VISION }
 }

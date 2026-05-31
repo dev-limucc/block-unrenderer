@@ -1,5 +1,6 @@
 package dev.limucc.blockunrenderer.client.mixin;
 
+import dev.limucc.blockunrenderer.client.config.ModConfig;
 import dev.limucc.blockunrenderer.client.render.HideState;
 import net.minecraft.client.renderer.LightmapRenderStateExtractor;
 import net.minecraft.client.renderer.state.LightmapRenderState;
@@ -9,32 +10,31 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Strong fullbright while hiding (Fix Lighting on).
+ * Lighting boost while hiding.
  *
- * LightmapRenderStateExtractor.extract() computes renderState.brightness from the
- * gamma option (capped at 1.0 by vanilla — which wasn't enough). We override the
- * public brightness field at TAIL to a large value, which the lightmap shader
- * lifts to (clamped) full brightness, so exposed areas under hidden blocks are
- * clearly visible.
+ * The lightmap shader clamps `brightness` (gamma), so it alone can't brighten dark
+ * areas. nightVisionEffectIntensity is the shader's real "see in the dark" lever —
+ * 1.0 lifts even light level 0 to fully visible. We use it for both modes:
+ *   FULLBRIGHT   → neutral white tint (clean, fullbright look)
+ *   NIGHT_VISION → default tint (classic night-vision look)
  *
- * Works for vanilla and Sodium (both sample this lightmap). Iris shaders compute
- * their own lighting and ignore the lightmap, so under shaders use the shader's
- * brightness/night-vision. Zero cost when off (one boolean check).
+ * Works in vanilla/Sodium. Under Iris shaders the shader owns lighting.
+ * Zero cost when off (one boolean check).
  */
 @Mixin(LightmapRenderStateExtractor.class)
 public class LightmapMixin {
 
     @Inject(method = "extract(Lnet/minecraft/client/renderer/state/LightmapRenderState;F)V", at = @At("TAIL"))
-    private void bur$fullbright(LightmapRenderState renderState, float partialTicks, CallbackInfo ci) {
-        if (HideState.isFullbright()) {
-            // brightness (gamma) gets clamped by the lightmap shader, so on its own it's
-            // not enough. nightVisionEffectIntensity is the shader's "see in the dark"
-            // lever — 1.0 = permanent night vision, which lifts even light level 0 to
-            // fully visible. Combine both + kill any darkness effect for max clarity.
+    private void bur$light(LightmapRenderState renderState, float partialTicks, CallbackInfo ci) {
+        if (!HideState.isLightActive()) return;
+
+        renderState.nightVisionEffectIntensity = 1.0F;
+        renderState.darknessEffectScale = 0.0F;
+        renderState.bossOverlayWorldDarkening = 0.0F;
+
+        if (HideState.lightMode() == ModConfig.LightMode.FULLBRIGHT) {
             renderState.brightness = 1.0F;
-            renderState.nightVisionEffectIntensity = 1.0F;
-            renderState.darknessEffectScale = 0.0F;
-            renderState.bossOverlayWorldDarkening = 0.0F;
+            renderState.nightVisionColor = LightmapRenderStateExtractor.WHITE; // neutral, no green tint
         }
     }
 }

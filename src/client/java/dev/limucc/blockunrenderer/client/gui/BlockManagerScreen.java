@@ -43,7 +43,7 @@ public class BlockManagerScreen extends Screen {
             "§eToggles (top buttons)",
             "• §fMode§r — HOLD: hide only while key held; TOGGLE: press to flip.",
             "• §fUnderneath§r — keep blocks under hidden ones rendered (no holes).",
-            "• §fLighting§r — fullbright so exposed areas are clearly visible.",
+            "• §fLight§r — cycle OFF / FULLBRIGHT / NIGHT to light exposed areas.",
             "",
             "§7Works with & without Sodium. No cost when hiding is off.",
             "§7Under Iris shaders, lighting is the shader's — use its brightness.",
@@ -107,7 +107,11 @@ public class BlockManagerScreen extends Screen {
 
         this.addRenderableWidget(Button.builder(lightLabel(), b -> {
             ModConfig c = ConfigManager.get();
-            c.fixLighting = !c.fixLighting;
+            c.lightMode = switch (c.lightMode) {
+                case OFF -> ModConfig.LightMode.FULLBRIGHT;
+                case FULLBRIGHT -> ModConfig.LightMode.NIGHT_VISION;
+                case NIGHT_VISION -> ModConfig.LightMode.OFF;
+            };
             ConfigManager.save();
             HideState.rebuildFromConfig();
             b.setMessage(lightLabel());
@@ -137,7 +141,14 @@ public class BlockManagerScreen extends Screen {
 
     private Component modeLabel()  { return Component.literal("Mode: " + ConfigManager.get().triggerMode.name()); }
     private Component underLabel() { return Component.literal("Underneath: " + onOff(ConfigManager.get().showBlocksUnderneath)); }
-    private Component lightLabel() { return Component.literal("Lighting: " + onOff(ConfigManager.get().fixLighting)); }
+    private Component lightLabel() {
+        String s = switch (ConfigManager.get().lightMode) {
+            case OFF -> "OFF";
+            case FULLBRIGHT -> "FULL";
+            case NIGHT_VISION -> "NIGHT";
+        };
+        return Component.literal("Light: " + s);
+    }
     private static String onOff(boolean b) { return b ? "ON" : "OFF"; }
 
     private void refresh() {

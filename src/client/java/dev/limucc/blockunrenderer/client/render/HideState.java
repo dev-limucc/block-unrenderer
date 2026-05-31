@@ -1,6 +1,7 @@
 package dev.limucc.blockunrenderer.client.render;
 
 import dev.limucc.blockunrenderer.client.config.ConfigManager;
+import dev.limucc.blockunrenderer.client.config.ModConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -30,13 +31,18 @@ public final class HideState {
         return active && ConfigManager.get().showBlocksUnderneath && hidden.contains(block);
     }
 
-    public static boolean shouldFixLight(Block block) {
-        return active && ConfigManager.get().fixLighting && hidden.contains(block);
+    /** Let skylight pass through this hidden block (when lighting isn't OFF). */
+    public static boolean shouldPassLight(Block block) {
+        return active && ConfigManager.get().lightMode != ModConfig.LightMode.OFF && hidden.contains(block);
     }
 
-    /** Global fullbright while hiding with Fix Lighting on (read by LightTextureMixin). */
-    public static boolean isFullbright() {
-        return active && ConfigManager.get().fixLighting && !hidden.isEmpty();
+    /** True if a lighting boost should be applied now (read by LightmapMixin). */
+    public static boolean isLightActive() {
+        return active && ConfigManager.get().lightMode != ModConfig.LightMode.OFF && !hidden.isEmpty();
+    }
+
+    public static ModConfig.LightMode lightMode() {
+        return ConfigManager.get().lightMode;
     }
 
     public static boolean isActive() { return active; }

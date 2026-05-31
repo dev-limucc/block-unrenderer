@@ -56,7 +56,7 @@ public class BlockStateRenderShapeMixin {
 
     @Inject(method = "propagatesSkylightDown", at = @At("HEAD"), cancellable = true)
     private void bur$skylightThrough(CallbackInfoReturnable<Boolean> cir) {
-        if (HideState.shouldFixLight(((BlockState) (Object) this).getBlock())) {
+        if (HideState.shouldPassLight(((BlockState) (Object) this).getBlock())) {
             cir.setReturnValue(true);
         }
     }
