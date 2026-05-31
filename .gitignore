@@ -1,0 +1,27 @@
+# Private / local-only files
+CLAUDE.md
+README.private.md
+
+# Gradle
+.gradle/
+build/
+
+# Loom
+.loom-cache/
+
+# IDEs
+.idea/
+*.iml
+out/
+.classpath
+.project
+.settings/
+bin/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dev run data
+run/
