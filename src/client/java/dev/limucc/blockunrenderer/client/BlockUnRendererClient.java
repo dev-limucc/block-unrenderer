@@ -11,12 +11,17 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 public class BlockUnRendererClient implements ClientModInitializer {
 
-    /** X — toggle/hold hiding. */
+    /** Our own controls section: Options → Controls → Block UN-renderer. */
+    public static final KeyMapping.Category CATEGORY =
+            KeyMapping.Category.register(Identifier.fromNamespaceAndPath("block_unrenderer", "main"));
+
+    /** Toggle/hold hiding. Unbound by default. */
     public static KeyMapping TOGGLE_KEY;
-    /** O — open the Block Manager GUI directly (no ModMenu needed). */
+    /** Open the Block Manager GUI directly. Unbound by default. */
     public static KeyMapping OPEN_KEY;
 
     private static boolean toggledOn = false;
@@ -27,17 +32,16 @@ public class BlockUnRendererClient implements ClientModInitializer {
         HideState.rebuildFromConfig();
 
         TOGGLE_KEY = KeyMappingHelper.registerKeyMapping(
-                new KeyMapping("key.block_unrenderer.toggle",
-                        InputConstants.KEY_X, KeyMapping.Category.GAMEPLAY));
+                new KeyMapping("key.block_unrenderer.toggle", InputConstants.UNKNOWN.getValue(), CATEGORY));
 
         OPEN_KEY = KeyMappingHelper.registerKeyMapping(
-                new KeyMapping("key.block_unrenderer.open",
-                        InputConstants.KEY_O, KeyMapping.Category.GAMEPLAY));
+                new KeyMapping("key.block_unrenderer.open", InputConstants.UNKNOWN.getValue(), CATEGORY));
 
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             ModConfig cfg = ConfigManager.get();
 
             if (cfg.triggerMode == ModConfig.TriggerMode.HOLD) {
+                // isDown() is false while the key is unbound, so this is a safe no-op until bound.
                 HideState.setActive(TOGGLE_KEY.isDown());
             } else {
                 while (TOGGLE_KEY.consumeClick()) {
@@ -58,6 +62,7 @@ public class BlockUnRendererClient implements ClientModInitializer {
             }
         });
 
-        BlockUnRenderer.LOGGER.info("Block UN-renderer client ready. Toggle: X, Open GUI: O");
+        BlockUnRenderer.LOGGER.info(
+                "Block UN-renderer client ready. Bind keys under Options → Controls → Block UN-renderer.");
     }
 }

@@ -35,12 +35,13 @@ public class BlockManagerScreen extends Screen {
             "",
             "§eHow to use",
             "• Type in the search box, then click a block to §aADD§r it.",
-            "• With an empty search, the list shows your hidden blocks —",
+            "• With an empty search, the list shows your listed blocks —",
             "   click one to §cREMOVE§r it.",
-            "• Press §eX§r in-game to toggle hiding on/off.",
-            "• Press §eO§r to open this screen any time.",
+            "• Bind keys in §eOptions → Controls → Block UN-renderer§r",
+            "   (unbound by default) to toggle hiding & open this screen.",
             "",
             "§eToggles (top buttons)",
+            "• §fFilter§r — HIDE listed (blacklist) or SHOW only listed (whitelist).",
             "• §fMode§r — HOLD: hide only while key held; TOGGLE: press to flip.",
             "• §fUnderneath§r — keep blocks under hidden ones rendered (no holes).",
             "• §fLight§r — cycle OFF / FULLBRIGHT / NIGHT to light exposed areas.",
@@ -88,14 +89,23 @@ public class BlockManagerScreen extends Screen {
         this.listTop    = 98;
         this.listBottom = this.height - 36;
 
-        int by = 28, bw = 102, gap = 4;
+        int by = 28, bw = 74, gap = 4;
+        this.addRenderableWidget(Button.builder(filterLabel(), b -> {
+            ModConfig c = ConfigManager.get();
+            c.filterMode = (c.filterMode == ModConfig.FilterMode.HIDE_LISTED)
+                    ? ModConfig.FilterMode.SHOW_ONLY_LISTED : ModConfig.FilterMode.HIDE_LISTED;
+            ConfigManager.save();
+            HideState.rebuildFromConfig();
+            b.setMessage(filterLabel());
+        }).bounds(panelLeft, by, bw, 20).build());
+
         this.addRenderableWidget(Button.builder(modeLabel(), b -> {
             ModConfig c = ConfigManager.get();
             c.triggerMode = (c.triggerMode == ModConfig.TriggerMode.TOGGLE)
                     ? ModConfig.TriggerMode.HOLD : ModConfig.TriggerMode.TOGGLE;
             ConfigManager.save();
             b.setMessage(modeLabel());
-        }).bounds(panelLeft, by, bw, 20).build());
+        }).bounds(panelLeft + (bw + gap), by, bw, 20).build());
 
         this.addRenderableWidget(Button.builder(underLabel(), b -> {
             ModConfig c = ConfigManager.get();
@@ -103,7 +113,7 @@ public class BlockManagerScreen extends Screen {
             ConfigManager.save();
             HideState.rebuildFromConfig();
             b.setMessage(underLabel());
-        }).bounds(panelLeft + bw + gap, by, bw, 20).build());
+        }).bounds(panelLeft + 2 * (bw + gap), by, bw, 20).build());
 
         this.addRenderableWidget(Button.builder(lightLabel(), b -> {
             ModConfig c = ConfigManager.get();
@@ -115,7 +125,7 @@ public class BlockManagerScreen extends Screen {
             ConfigManager.save();
             HideState.rebuildFromConfig();
             b.setMessage(lightLabel());
-        }).bounds(panelLeft + 2 * (bw + gap), by, bw, 20).build());
+        }).bounds(panelLeft + 3 * (bw + gap), by, bw, 20).build());
 
         this.search = new EditBox(this.font, panelLeft, 58, 310, 18, Component.literal("Search"));
         this.search.setHint(Component.literal("Search blocks by name…"));
@@ -139,6 +149,10 @@ public class BlockManagerScreen extends Screen {
         refresh();
     }
 
+    private Component filterLabel() {
+        return Component.literal("Filter: "
+                + (ConfigManager.get().filterMode == ModConfig.FilterMode.HIDE_LISTED ? "HIDE" : "SHOW"));
+    }
     private Component modeLabel()  { return Component.literal("Mode: " + ConfigManager.get().triggerMode.name()); }
     private Component underLabel() { return Component.literal("Underneath: " + onOff(ConfigManager.get().showBlocksUnderneath)); }
     private Component lightLabel() {

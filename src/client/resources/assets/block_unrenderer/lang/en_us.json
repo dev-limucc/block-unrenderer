@@ -1,5 +1,6 @@
 {
   "key.block_unrenderer.toggle": "Toggle Block Hiding",
   "key.block_unrenderer.open": "Open Block Manager",
+  "key.category.block_unrenderer.main": "Block UN-renderer",
   "key.categories.block_unrenderer": "Block UN-renderer"
 }

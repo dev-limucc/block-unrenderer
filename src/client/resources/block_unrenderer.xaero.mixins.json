@@ -1,0 +1,11 @@
+{
+  "required": false,
+  "package": "dev.limucc.blockunrenderer.client.mixin.xaero",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "XaeroMinimapProcessorMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

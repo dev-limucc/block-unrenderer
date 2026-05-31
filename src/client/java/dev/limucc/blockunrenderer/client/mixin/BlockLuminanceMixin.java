@@ -27,6 +27,8 @@ public class BlockLuminanceMixin {
 
     @Inject(method = "getLightEmission", at = @At("HEAD"), cancellable = true)
     private void bur$fullbright(CallbackInfoReturnable<Integer> cir) {
+        // Don't feed fake luminance to map mods sampling the world (keeps Xaero's map true).
+        if (HideState.isMapSampling()) return;
         if (HideState.isLightActive() && HideState.lightMode() == ModConfig.LightMode.FULLBRIGHT) {
             cir.setReturnValue(15);
         }

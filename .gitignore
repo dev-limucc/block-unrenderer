@@ -25,3 +25,7 @@ Thumbs.db
 
 # Dev run data
 run/
+.mrlog
+.mrstatus
+.mrverify
+build_out.txt
