@@ -27,7 +27,14 @@ public class LightmapMixin {
     @Inject(method = "extract(Lnet/minecraft/client/renderer/state/LightmapRenderState;F)V", at = @At("TAIL"))
     private void bur$fullbright(LightmapRenderState renderState, float partialTicks, CallbackInfo ci) {
         if (HideState.isFullbright()) {
-            renderState.brightness = 16.0F;
+            // brightness (gamma) gets clamped by the lightmap shader, so on its own it's
+            // not enough. nightVisionEffectIntensity is the shader's "see in the dark"
+            // lever — 1.0 = permanent night vision, which lifts even light level 0 to
+            // fully visible. Combine both + kill any darkness effect for max clarity.
+            renderState.brightness = 1.0F;
+            renderState.nightVisionEffectIntensity = 1.0F;
+            renderState.darknessEffectScale = 0.0F;
+            renderState.bossOverlayWorldDarkening = 0.0F;
         }
     }
 }
