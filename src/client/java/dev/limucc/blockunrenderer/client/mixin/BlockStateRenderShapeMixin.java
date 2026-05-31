@@ -10,25 +10,48 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Hides REGULAR blocks by making their render shape INVISIBLE.
+ * Hides REGULAR blocks AND keeps their neighbours rendered.
  *
- * Both vanilla AND Sodium build chunk geometry by calling
- * BlockState.getRenderShape() and skipping anything that isn't RenderShape.MODEL
- * (see SectionCompiler line 99). By returning INVISIBLE here, the block is simply
- * never added to the chunk mesh — zero per-frame cost, fully Sodium-compatible.
+ * Two parts:
  *
- * The block's collision, lighting, and logic are untouched; only its visual mesh
- * is removed. Toggling triggers a one-time chunk re-mesh (see HideState).
+ * 1. getRenderShape() → INVISIBLE
+ *    Both vanilla and Sodium skip anything that isn't RenderShape.MODEL when
+ *    building chunk geometry, so the block itself is never meshed.
+ *
+ * 2. canOcclude()/isSolidRender() → false
+ *    Face culling (Block.shouldRenderFace) renders a neighbour's face UNLESS the
+ *    adjacent block canOcclude(). If we leave a hidden block occluding, the block
+ *    underneath/around it loses the touching face → you see a hole into the void.
+ *    Reporting the hidden block as non-occluding makes neighbours draw those faces,
+ *    so e.g. hiding grass reveals the dirt's top face instead of a floorless hole.
+ *    Hooking both methods covers vanilla (canOcclude) and Sodium (isSolidRender).
+ *
+ * All gated on HideState.shouldHide(), whose `active` check is near-zero cost when off.
  */
 @Mixin(BlockBehaviour.BlockStateBase.class)
 public class BlockStateRenderShapeMixin {
 
     @Inject(method = "getRenderShape", at = @At("HEAD"), cancellable = true)
     private void blockUnrenderer$hideRenderShape(CallbackInfoReturnable<RenderShape> cir) {
-        // `active` boolean is checked first inside shouldHide → negligible overhead when off
         BlockState state = (BlockState) (Object) this;
         if (HideState.shouldHide(state.getBlock())) {
             cir.setReturnValue(RenderShape.INVISIBLE);
+        }
+    }
+
+    @Inject(method = "canOcclude", at = @At("HEAD"), cancellable = true)
+    private void blockUnrenderer$noOcclude(CallbackInfoReturnable<Boolean> cir) {
+        BlockState state = (BlockState) (Object) this;
+        if (HideState.shouldHide(state.getBlock())) {
+            cir.setReturnValue(false);
+        }
+    }
+
+    @Inject(method = "isSolidRender", at = @At("HEAD"), cancellable = true)
+    private void blockUnrenderer$notSolidRender(CallbackInfoReturnable<Boolean> cir) {
+        BlockState state = (BlockState) (Object) this;
+        if (HideState.shouldHide(state.getBlock())) {
+            cir.setReturnValue(false);
         }
     }
 }

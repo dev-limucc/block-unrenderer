@@ -39,9 +39,13 @@ public class ModMenuIntegration implements ModMenuApi {
                 Component.literal("Hides listed blocks & block entities client-side.")).build());
         info.addEntry(e.startTextDescription(Component.literal(" ")).build());
         info.addEntry(e.startTextDescription(
-                Component.literal("§eKey: X§r — toggle/hold (set the mode in Settings).")).build());
+                Component.literal("§eKey X§r — toggle/hold hiding (mode set in Settings).")).build());
         info.addEntry(e.startTextDescription(
-                Component.literal("Rebind in Options → Controls → Gameplay.")).build());
+                Component.literal("§eKey N§r — add/remove the block you're LOOKING at.")).build());
+        info.addEntry(e.startTextDescription(
+                Component.literal("§7  (easiest way to pick blocks — no typing needed)")).build());
+        info.addEntry(e.startTextDescription(
+                Component.literal("Rebind both in Options → Controls → Gameplay.")).build());
         info.addEntry(e.startTextDescription(Component.literal(" ")).build());
         info.addEntry(e.startTextDescription(
                 Component.literal("§7Works with and without Sodium. Hiding is instant;")).build());
@@ -64,10 +68,9 @@ public class ModMenuIntegration implements ModMenuApi {
                 .startStrList(Component.literal("Hidden Block IDs"), cfg.hiddenBlocks)
                 .setDefaultValue(java.util.List.of())
                 .setTooltip(Component.literal(
-                        "One Minecraft block ID per line, e.g.:\n" +
-                        "  minecraft:stone\n" +
-                        "  minecraft:chest\n" +
-                        "  minecraft:deepslate\n" +
+                        "Manual list of block IDs, e.g. minecraft:stone, minecraft:chest.\n" +
+                        "TIP: it's much easier to just look at a block in-game and press N\n" +
+                        "to add/remove it — no typing required.\n" +
                         "Works for normal blocks and block entities (chests, furnaces, etc.)."))
                 .setExpanded(true)
                 .setInsertButtonEnabled(true)
