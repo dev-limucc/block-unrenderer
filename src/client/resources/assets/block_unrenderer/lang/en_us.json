@@ -1,5 +1,5 @@
 {
   "key.block_unrenderer.toggle": "Toggle Block Hiding",
-  "key.block_unrenderer.target": "Add/Remove Looked-at Block",
+  "key.block_unrenderer.open": "Open Block Manager",
   "key.categories.block_unrenderer": "Block UN-renderer"
 }

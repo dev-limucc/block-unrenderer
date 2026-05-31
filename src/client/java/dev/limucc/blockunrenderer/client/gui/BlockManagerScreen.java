@@ -20,13 +20,8 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Dedicated block manager: a real search box, a scrollable list of blocks with
- * icons, and click-to-add / click-to-remove — all with visible text.
- *
- * Why custom instead of Cloth: in MC 26.1, Cloth's text-input widgets render with
- * (near-)invisible text, and its only block search is that same text field. Vanilla
- * widgets (EditBox) render correctly via the 26.1 GuiGraphicsExtractor path, so a
- * small custom screen is the reliable way to get a usable, visible search.
+ * Block manager: search box, scrollable block list with icons, click-to-add/remove,
+ * toggle buttons, and an Info page. Built on vanilla widgets so all text is visible.
  */
 public class BlockManagerScreen extends Screen {
 
@@ -34,9 +29,30 @@ public class BlockManagerScreen extends Screen {
 
     private static List<Entry> ALL;
 
+    private static final String[] INFO = {
+            "§lBlock UN-renderer",
+            "Hide any block or block entity on your client.",
+            "",
+            "§eHow to use",
+            "• Type in the search box, then click a block to §aADD§r it.",
+            "• With an empty search, the list shows your hidden blocks —",
+            "   click one to §cREMOVE§r it.",
+            "• Press §eX§r in-game to toggle hiding on/off.",
+            "• Press §eO§r to open this screen any time.",
+            "",
+            "§eToggles (top buttons)",
+            "• §fMode§r — HOLD: hide only while key held; TOGGLE: press to flip.",
+            "• §fUnderneath§r — keep blocks under hidden ones rendered (no holes).",
+            "• §fLighting§r — fullbright so exposed areas are clearly visible.",
+            "",
+            "§7Works with & without Sodium. No cost when hiding is off.",
+            "§7Under Iris shaders, lighting is the shader's — use its brightness.",
+            "§7For singleplayer / servers you own. Not for unfair PvP."
+    };
+
     private final Screen parent;
     private EditBox search;
-    private Button modeBtn, underBtn, lightBtn;
+    private boolean showInfo = false;
 
     private final List<Entry> filtered = new ArrayList<>();
     private int scroll = 0;
@@ -69,12 +85,11 @@ public class BlockManagerScreen extends Screen {
         int cx = this.width / 2;
         this.panelLeft  = cx - 155;
         this.panelRight = cx + 155;
-        this.listTop    = 86;
+        this.listTop    = 98;
         this.listBottom = this.height - 36;
 
-        // Top toggle buttons (no typing — flip config on click)
         int by = 28, bw = 102, gap = 4;
-        this.modeBtn = this.addRenderableWidget(Button.builder(modeLabel(), b -> {
+        this.addRenderableWidget(Button.builder(modeLabel(), b -> {
             ModConfig c = ConfigManager.get();
             c.triggerMode = (c.triggerMode == ModConfig.TriggerMode.TOGGLE)
                     ? ModConfig.TriggerMode.HOLD : ModConfig.TriggerMode.TOGGLE;
@@ -82,7 +97,7 @@ public class BlockManagerScreen extends Screen {
             b.setMessage(modeLabel());
         }).bounds(panelLeft, by, bw, 20).build());
 
-        this.underBtn = this.addRenderableWidget(Button.builder(underLabel(), b -> {
+        this.addRenderableWidget(Button.builder(underLabel(), b -> {
             ModConfig c = ConfigManager.get();
             c.showBlocksUnderneath = !c.showBlocksUnderneath;
             ConfigManager.save();
@@ -90,7 +105,7 @@ public class BlockManagerScreen extends Screen {
             b.setMessage(underLabel());
         }).bounds(panelLeft + bw + gap, by, bw, 20).build());
 
-        this.lightBtn = this.addRenderableWidget(Button.builder(lightLabel(), b -> {
+        this.addRenderableWidget(Button.builder(lightLabel(), b -> {
             ModConfig c = ConfigManager.get();
             c.fixLighting = !c.fixLighting;
             ConfigManager.save();
@@ -98,17 +113,24 @@ public class BlockManagerScreen extends Screen {
             b.setMessage(lightLabel());
         }).bounds(panelLeft + 2 * (bw + gap), by, bw, 20).build());
 
-        // Search box (vanilla — visible text)
         this.search = new EditBox(this.font, panelLeft, 58, 310, 18, Component.literal("Search"));
         this.search.setHint(Component.literal("Search blocks by name…"));
         this.search.setMaxLength(100);
         this.search.setResponder(s -> refresh());
+        this.search.setVisible(!showInfo);
         this.addRenderableWidget(this.search);
-        this.setInitialFocus(this.search);
+        if (!showInfo) this.setInitialFocus(this.search);
 
-        // Done
+        // Info / Back toggle (bottom-left)
+        this.addRenderableWidget(Button.builder(Component.literal(showInfo ? "Back" : "Info"), b -> {
+            showInfo = !showInfo;
+            b.setMessage(Component.literal(showInfo ? "Back" : "Info"));
+            this.search.setVisible(!showInfo);
+        }).bounds(panelLeft, this.height - 28, 60, 20).build());
+
+        // Done (center)
         this.addRenderableWidget(Button.builder(Component.literal("Done"), b -> this.onClose())
-                .bounds(cx - 75, this.height - 28, 150, 20).build());
+                .bounds(cx - 50, this.height - 28, 100, 20).build());
 
         refresh();
     }
@@ -152,10 +174,19 @@ public class BlockManagerScreen extends Screen {
         int tw = this.font.width(this.title);
         g.text(this.font, this.title, this.width / 2 - tw / 2, 8, 0xFFFFFFFF);
 
+        if (showInfo) {
+            int y = 56;
+            for (String line : INFO) {
+                g.text(this.font, line, panelLeft, y, 0xFFFFFFFF);
+                y += 11;
+            }
+            return;
+        }
+
         String hint = search.getValue().trim().isEmpty()
                 ? "Showing hidden blocks — type above to search & add more"
                 : filtered.size() + " match(es) — click a row to add/remove";
-        g.text(this.font, hint, panelLeft, 78, 0xFFA0A0A0);
+        g.text(this.font, hint, panelLeft, 80, 0xFFA0A0A0);
 
         g.fill(panelLeft - 2, listTop - 2, panelRight + 2, listBottom + 2, 0x90000000);
 
@@ -194,6 +225,7 @@ public class BlockManagerScreen extends Screen {
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         if (super.mouseClicked(event, doubleClick)) return true;
+        if (showInfo) return false;
         double mx = event.x(), my = event.y();
         if (event.button() == 0 && mx >= panelLeft && mx <= panelRight && my >= listTop && my < listBottom) {
             int idx = (int) ((my - listTop + scroll) / ROW_H);
@@ -204,7 +236,7 @@ public class BlockManagerScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double scrollX, double scrollY) {
-        if (mx >= panelLeft - 2 && mx <= panelRight + 5 && my >= listTop && my < listBottom) {
+        if (!showInfo && mx >= panelLeft - 2 && mx <= panelRight + 5 && my >= listTop && my < listBottom) {
             int total = filtered.size() * ROW_H;
             int view = listBottom - listTop;
             int max = Math.max(0, total - view);
