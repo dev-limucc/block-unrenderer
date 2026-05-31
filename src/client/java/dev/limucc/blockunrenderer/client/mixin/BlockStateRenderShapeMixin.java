@@ -1,6 +1,7 @@
 package dev.limucc.blockunrenderer.client.mixin;
 
 import dev.limucc.blockunrenderer.client.render.HideState;
+import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
@@ -58,13 +59,17 @@ public class BlockStateRenderShapeMixin {
     }
 
     /**
-     * The shape-based face-culling path uses the CACHED occlusion shape (built at
-     * state construction when canOcclude was still true). Returning an empty shape
-     * here makes that path treat the hidden block as fully transparent too — the
-     * final piece needed so neighbours always render their exposed faces.
+     * THE decisive fix for floorless holes.
+     *
+     * Block.shouldRenderFace() culls a neighbour's face by reading THIS block's
+     * getFaceOcclusionShape(direction): if it equals Shapes.block() the neighbour's
+     * face is dropped. Returning Shapes.empty() for a hidden block means it never
+     * occludes any neighbour face — so hiding grass leaves the dirt's top face drawn
+     * instead of a hole into the void. This is the exact method the mesher uses
+     * (canOcclude/getOcclusionShape above are kept for Sodium and other paths).
      */
-    @Inject(method = "getOcclusionShape()Lnet/minecraft/world/phys/shapes/VoxelShape;", at = @At("HEAD"), cancellable = true)
-    private void blockUnrenderer$emptyOcclusionShape(CallbackInfoReturnable<VoxelShape> cir) {
+    @Inject(method = "getFaceOcclusionShape", at = @At("HEAD"), cancellable = true)
+    private void blockUnrenderer$emptyFaceOcclusion(Direction direction, CallbackInfoReturnable<VoxelShape> cir) {
         BlockState state = (BlockState) (Object) this;
         if (HideState.shouldHide(state.getBlock())) {
             cir.setReturnValue(Shapes.empty());
