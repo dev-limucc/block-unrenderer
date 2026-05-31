@@ -28,13 +28,19 @@ public class LightmapMixin {
     private void bur$light(LightmapRenderState renderState, float partialTicks, CallbackInfo ci) {
         if (!HideState.isLightActive()) return;
 
-        renderState.nightVisionEffectIntensity = 1.0F;
         renderState.darknessEffectScale = 0.0F;
         renderState.bossOverlayWorldDarkening = 0.0F;
 
         if (HideState.lightMode() == ModConfig.LightMode.FULLBRIGHT) {
+            // Overshoot night-vision so even light-level-0 areas (the covered blocks
+            // under hidden ones) saturate to full white instead of staying gray.
+            // The lightmap texture is RGBA8, so the shader clamps the result — the
+            // net effect is a uniform, fully-bright lightmap.
+            renderState.nightVisionEffectIntensity = 10.0F;
             renderState.brightness = 1.0F;
             renderState.nightVisionColor = LightmapRenderStateExtractor.WHITE; // neutral, no green tint
+        } else { // NIGHT_VISION — classic look
+            renderState.nightVisionEffectIntensity = 1.0F;
         }
     }
 }
