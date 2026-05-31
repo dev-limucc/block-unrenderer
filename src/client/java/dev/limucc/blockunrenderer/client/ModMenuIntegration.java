@@ -8,8 +8,17 @@ import dev.limucc.blockunrenderer.client.render.HideState;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
 import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
+import me.shedaniel.clothconfig2.impl.builders.DropdownMenuBuilder;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class ModMenuIntegration implements ModMenuApi {
 
@@ -78,6 +87,30 @@ public class ModMenuIntegration implements ModMenuApi {
                         "exposed areas are clearly visible (vanilla & Sodium).\n" +
                         "Under Iris shaders, use the shader's brightness instead."))
                 .setSaveConsumer(v -> cfg.fixLighting = v)
+                .build());
+
+        // Searchable block picker — type to filter, pick a block, Save to add it.
+        List<Block> selectable = BuiltInRegistries.BLOCK.stream()
+                .filter(b -> b.asItem() != Items.AIR)
+                .sorted(Comparator.comparing(b -> BuiltInRegistries.BLOCK.getKey(b).toString()))
+                .collect(Collectors.toList());
+
+        settings.addEntry(e
+                .startDropdownMenu(Component.literal("Add Block (search)"),
+                        DropdownMenuBuilder.TopCellElementBuilder.ofBlockObject(Blocks.AIR),
+                        DropdownMenuBuilder.CellCreatorBuilder.ofBlockObject())
+                .setSelections(selectable)
+                .setDefaultValue(Blocks.AIR)
+                .setTooltip(Component.literal(
+                        "Type to search, pick a block, then press Save —\n" +
+                        "it gets added to the Hidden Block IDs list below.\n" +
+                        "Shows block icons; reopen the screen to see the updated list."))
+                .setSaveConsumer(block -> {
+                    if (block != null && block != Blocks.AIR) {
+                        String id = BuiltInRegistries.BLOCK.getKey(block).toString();
+                        if (!cfg.hiddenBlocks.contains(id)) cfg.hiddenBlocks.add(id);
+                    }
+                })
                 .build());
 
         settings.addEntry(e
