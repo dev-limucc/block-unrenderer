@@ -9,6 +9,7 @@
     "sources": "https://github.com/dev-limucc/block-unrenderer"
   },
   "license": "MIT",
+  "icon": "assets/block_unrenderer/icon.png",
   "environment": "client",
   "entrypoints": {
     "main":    ["dev.limucc.blockunrenderer.BlockUnRenderer"],
