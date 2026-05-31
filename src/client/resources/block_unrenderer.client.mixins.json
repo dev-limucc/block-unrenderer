@@ -5,7 +5,8 @@
   "client": [
     "BlockStateRenderShapeMixin",
     "BlockEntityRenderDispatcherMixin",
-    "LightmapMixin"
+    "LightmapMixin",
+    "LightmapClearMixin"
   ],
   "injectors": {
     "defaultRequire": 1
