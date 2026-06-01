@@ -2,7 +2,6 @@ package dev.limucc.blockunrenderer.client.mixin;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
-import dev.limucc.blockunrenderer.client.config.ModConfig;
 import dev.limucc.blockunrenderer.client.render.HideState;
 import net.minecraft.client.renderer.Lightmap;
 import net.minecraft.client.renderer.state.LightmapRenderState;
@@ -31,9 +30,10 @@ public class LightmapClearMixin {
 
     @Shadow @Final private GpuTexture texture;
 
+    // Runs once per frame (not per block), so @Inject's CallbackInfo cost is irrelevant here.
     @Inject(method = "render(Lnet/minecraft/client/renderer/state/LightmapRenderState;)V", at = @At("TAIL"))
     private void bur$whiteLightmap(LightmapRenderState renderState, CallbackInfo ci) {
-        if (HideState.isLightActive() && HideState.lightMode() == ModConfig.LightMode.FULLBRIGHT) {
+        if (HideState.isLightActive()) { // isLightActive() already implies active + FULLBRIGHT
             RenderSystem.getDevice().createCommandEncoder()
                     .clearColorTexture(this.texture, 0xFFFFFFFF); // white
         }

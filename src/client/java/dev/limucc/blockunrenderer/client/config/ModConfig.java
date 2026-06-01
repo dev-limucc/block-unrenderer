@@ -5,7 +5,7 @@ import java.util.List;
 
 /**
  * Settings for Block UN-renderer.
- * One block-ID list covers both regular blocks and block entities.
+ * One ID list covers regular blocks, block entities, and liquids (minecraft:water, minecraft:lava, …).
  */
 public class ModConfig {
 
@@ -13,17 +13,23 @@ public class ModConfig {
     public TriggerMode triggerMode = TriggerMode.TOGGLE;
 
     /**
-     * How the block list is interpreted:
-     *  HIDE_LISTED      — hide the listed blocks, show everything else (blacklist, default).
-     *  SHOW_ONLY_LISTED — show ONLY the listed blocks, hide everything else (whitelist).
+     * How the list is interpreted:
+     *  HIDE_LISTED      — hide the listed entries, show everything else (blacklist, default).
+     *  SHOW_ONLY_LISTED — show ONLY the listed entries, hide everything else (whitelist).
      */
     public FilterMode filterMode = FilterMode.HIDE_LISTED;
 
     /**
-     * The blocks the filter acts on, e.g. "minecraft:stone", "minecraft:chest".
-     * (JSON key kept as "hiddenBlocks" for backward compatibility with 1.0 configs.)
+     * The blocks/liquids the filter acts on, e.g. "minecraft:stone", "minecraft:chest", "minecraft:water".
+     * (JSON key kept as "hiddenBlocks" for backward compatibility with older configs.)
      */
     public List<String> hiddenBlocks = new ArrayList<>();
+
+    /** When true, hide ALL entities (mobs, items, etc.) while hiding is active. */
+    public boolean hideEntities = false;
+
+    /** When true, hide ALL liquids (water, lava, modded) while hiding is active. */
+    public boolean hideLiquids = false;
 
     /**
      * When true (default): blocks under/behind a hidden block still render, so you
@@ -33,16 +39,15 @@ public class ModConfig {
 
     /**
      * Lighting while hiding:
-     *  OFF         — no change.
-     *  FULLBRIGHT  — bright, neutral white light (clean visibility).
-     *  NIGHT_VISION— classic night-vision look (slightly tinted).
-     * Both work in vanilla/Sodium; under Iris shaders the shader controls lighting.
+     *  OFF        — no change.
+     *  FULLBRIGHT — bright, neutral white light (clean visibility) — default.
+     * Works in vanilla/Sodium; under Iris shaders the shader controls lighting.
      */
     public LightMode lightMode = LightMode.FULLBRIGHT;
 
     public enum TriggerMode { HOLD, TOGGLE }
 
-    public enum LightMode { OFF, FULLBRIGHT, NIGHT_VISION }
+    public enum LightMode { OFF, FULLBRIGHT }
 
     public enum FilterMode { HIDE_LISTED, SHOW_ONLY_LISTED }
 }

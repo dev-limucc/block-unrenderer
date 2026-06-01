@@ -1,7 +1,7 @@
 package dev.limucc.blockunrenderer.client.mixin;
 
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import dev.limucc.blockunrenderer.client.render.HideState;
-import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
@@ -9,55 +9,46 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Hides regular blocks, optionally keeps neighbours rendered, and optionally lets
- * light through. Every check tests HideState's `active` flag first → no cost when off.
+ * Hides regular blocks, optionally keeps neighbours rendered, and optionally lets light through.
+ *
+ * These methods are called per-block, millions of times during chunk meshing & lighting. We use
+ * MixinExtras {@link ModifyReturnValue} (NOT {@code @Inject(cancellable=true)}) so NO CallbackInfo
+ * object is allocated on any call — when the mod is off this is a single volatile read, the JIT
+ * inlines it, and there is zero GC pressure. That allocation churn was the main cause of the
+ * world-load lag on low-end machines.
  */
 @Mixin(BlockBehaviour.BlockStateBase.class)
 public class BlockStateRenderShapeMixin {
 
-    // Make the block itself invisible (skipped during chunk meshing — vanilla + Sodium).
-    @Inject(method = "getRenderShape", at = @At("HEAD"), cancellable = true)
-    private void bur$hideRenderShape(CallbackInfoReturnable<RenderShape> cir) {
-        if (HideState.shouldHide(((BlockState) (Object) this).getBlock())) {
-            cir.setReturnValue(RenderShape.INVISIBLE);
-        }
+    // Make the block invisible (skipped during chunk meshing — vanilla + Sodium).
+    @ModifyReturnValue(method = "getRenderShape", at = @At("RETURN"))
+    private RenderShape bur$hideRenderShape(RenderShape original) {
+        return HideState.shouldHide(((BlockState) (Object) this).getBlock()) ? RenderShape.INVISIBLE : original;
     }
 
     // ── Keep neighbours rendered (gated by "Show blocks underneath") ──────────
 
-    @Inject(method = "canOcclude", at = @At("HEAD"), cancellable = true)
-    private void bur$noOcclude(CallbackInfoReturnable<Boolean> cir) {
-        if (HideState.shouldShowUnder(((BlockState) (Object) this).getBlock())) {
-            cir.setReturnValue(false);
-        }
+    @ModifyReturnValue(method = "canOcclude", at = @At("RETURN"))
+    private boolean bur$noOcclude(boolean original) {
+        return original && !HideState.shouldShowUnder(((BlockState) (Object) this).getBlock());
     }
 
-    @Inject(method = "isSolidRender", at = @At("HEAD"), cancellable = true)
-    private void bur$notSolidRender(CallbackInfoReturnable<Boolean> cir) {
-        if (HideState.shouldShowUnder(((BlockState) (Object) this).getBlock())) {
-            cir.setReturnValue(false);
-        }
+    @ModifyReturnValue(method = "isSolidRender", at = @At("RETURN"))
+    private boolean bur$notSolidRender(boolean original) {
+        return original && !HideState.shouldShowUnder(((BlockState) (Object) this).getBlock());
     }
 
-    @Inject(method = "getFaceOcclusionShape", at = @At("HEAD"), cancellable = true)
-    private void bur$emptyFaceOcclusion(Direction direction, CallbackInfoReturnable<VoxelShape> cir) {
-        if (HideState.shouldShowUnder(((BlockState) (Object) this).getBlock())) {
-            cir.setReturnValue(Shapes.empty());
-        }
+    @ModifyReturnValue(method = "getFaceOcclusionShape", at = @At("RETURN"))
+    private VoxelShape bur$emptyFaceOcclusion(VoxelShape original) {
+        return HideState.shouldShowUnder(((BlockState) (Object) this).getBlock()) ? Shapes.empty() : original;
     }
 
-    // ── Let skylight through (gated by "Fix lighting") ────────────────────────
-    // Data-level so it's consistent for vanilla, Sodium, and shader light reads.
-    // (The brightness boost in HideState provides the immediate visibility.)
+    // ── Let skylight through (gated by FULLBRIGHT) ────────────────────────────
 
-    @Inject(method = "propagatesSkylightDown", at = @At("HEAD"), cancellable = true)
-    private void bur$skylightThrough(CallbackInfoReturnable<Boolean> cir) {
-        if (HideState.shouldPassLight(((BlockState) (Object) this).getBlock())) {
-            cir.setReturnValue(true);
-        }
+    @ModifyReturnValue(method = "propagatesSkylightDown", at = @At("RETURN"))
+    private boolean bur$skylightThrough(boolean original) {
+        return original || HideState.shouldPassLight(((BlockState) (Object) this).getBlock());
     }
 }

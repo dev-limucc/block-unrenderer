@@ -14,14 +14,16 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.LiquidBlock;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * Block manager: search box, scrollable block list with icons, click-to-add/remove,
- * toggle buttons, and an Info page. Built on vanilla widgets so all text is visible.
+ * Block manager: search box, scrollable list (blocks, block entities AND liquids) with icons,
+ * click-to-add/remove, toggle buttons, and an Info page. Built on vanilla widgets so all text
+ * is visible.
  */
 public class BlockManagerScreen extends Screen {
 
@@ -31,23 +33,28 @@ public class BlockManagerScreen extends Screen {
 
     private static final String[] INFO = {
             "§lBlock UN-renderer",
-            "Hide any block or block entity on your client.",
+            "Hide blocks, block entities, liquids & entities on your client.",
             "",
             "§eHow to use",
-            "• Type in the search box, then click a block to §aADD§r it.",
-            "• With an empty search, the list shows your listed blocks —",
+            "• Type in the search box, then click a row to §aADD§r it.",
+            "• With an empty search, the list shows your listed entries —",
             "   click one to §cREMOVE§r it.",
+            "• Liquids (water, lava) are in the list — search \"water\"/\"lava\".",
             "• Bind keys in §eOptions → Controls → Block UN-renderer§r",
             "   (unbound by default) to toggle hiding & open this screen.",
             "",
-            "§eToggles (top buttons)",
+            "§eFilter mode",
             "• §fFilter§r — HIDE listed (blacklist) or SHOW only listed (whitelist).",
-            "• §fMode§r — HOLD: hide only while key held; TOGGLE: press to flip.",
+            "• §fTrigger§r — HOLD: hide only while key held; TOGGLE: press to flip.",
+            "",
+            "§eHide also §8(green = ON/hidden)",
+            "• §fEntities§r — hide all mobs / items / projectiles.",
+            "• §fLiquids§r — hide ALL water / lava at once.",
             "• §fUnderneath§r — keep blocks under hidden ones rendered (no holes).",
-            "• §fLight§r — cycle OFF / FULLBRIGHT / NIGHT to light exposed areas.",
+            "• §fLight§r — OFF or FULLBRIGHT to light exposed areas.",
             "",
             "§7Works with & without Sodium. No cost when hiding is off.",
-            "§7Under Iris shaders, lighting is the shader's — use its brightness.",
+            "§7Doesn't distort Xaero's minimap / world map.",
             "§7For singleplayer / servers you own. Not for unfair PvP."
     };
 
@@ -70,10 +77,21 @@ public class BlockManagerScreen extends Screen {
         if (ALL == null) {
             List<Entry> list = new ArrayList<>();
             for (Block b : BuiltInRegistries.BLOCK) {
-                if (b.asItem() == Items.AIR) continue;
                 Identifier id = BuiltInRegistries.BLOCK.getKey(b);
                 if (id == null) continue;
-                list.add(new Entry(b, new ItemStack(b), id.toString(), id.getPath(), id.getNamespace()));
+                ItemStack icon;
+                if (b instanceof LiquidBlock) {
+                    // Liquids have no block item — show a bucket so they're recognisable.
+                    icon = switch (id.getPath()) {
+                        case "water" -> new ItemStack(Items.WATER_BUCKET);
+                        case "lava"  -> new ItemStack(Items.LAVA_BUCKET);
+                        default       -> new ItemStack(Items.BUCKET);
+                    };
+                } else {
+                    if (b.asItem() == Items.AIR) continue;
+                    icon = new ItemStack(b);
+                }
+                list.add(new Entry(b, icon, id.toString(), id.getPath(), id.getNamespace()));
             }
             list.sort((a, c) -> a.path.compareTo(c.path));
             ALL = list;
@@ -81,15 +99,23 @@ public class BlockManagerScreen extends Screen {
         return ALL;
     }
 
+    // Y positions of the two section header labels, drawn in extractRenderState().
+    private int filterHeaderY, hideHeaderY;
+
+    private int hintY;   // y of the "Showing listed entries…" line (set in init, drawn in render)
+
     @Override
     protected void init() {
         int cx = this.width / 2;
         this.panelLeft  = cx - 155;
         this.panelRight = cx + 155;
-        this.listTop    = 98;
-        this.listBottom = this.height - 36;
 
-        int by = 28, bw = 74, gap = 4;
+        int bw = 153, gap = 4;             // two columns span the 310-wide panel
+        int col0 = panelLeft, col1 = panelLeft + bw + gap;
+
+        // ── "Filter mode" group: two wide mode buttons ───────────────────────
+        this.filterHeaderY = 24;
+        int mr = 34;                       // 34 → ends 54
         this.addRenderableWidget(Button.builder(filterLabel(), b -> {
             ModConfig c = ConfigManager.get();
             c.filterMode = (c.filterMode == ModConfig.FilterMode.HIDE_LISTED)
@@ -97,7 +123,7 @@ public class BlockManagerScreen extends Screen {
             ConfigManager.save();
             HideState.rebuildFromConfig();
             b.setMessage(filterLabel());
-        }).bounds(panelLeft, by, bw, 20).build());
+        }).bounds(col0, mr, bw, 20).build());
 
         this.addRenderableWidget(Button.builder(modeLabel(), b -> {
             ModConfig c = ConfigManager.get();
@@ -105,30 +131,44 @@ public class BlockManagerScreen extends Screen {
                     ? ModConfig.TriggerMode.HOLD : ModConfig.TriggerMode.TOGGLE;
             ConfigManager.save();
             b.setMessage(modeLabel());
-        }).bounds(panelLeft + (bw + gap), by, bw, 20).build());
+        }).bounds(col1, mr, bw, 20).build());
+
+        // ── "Hide also" group: 2×2 grid of ON/OFF toggles ───────────────────
+        this.hideHeaderY = 60;
+        int tr1 = 72;                      // 72 → ends 92
+        int tr2 = 96;                      // 96 → ends 116
+
+        this.addRenderableWidget(Button.builder(entitiesLabel(), b -> {
+            ModConfig c = ConfigManager.get(); c.hideEntities = !c.hideEntities;
+            ConfigManager.save(); b.setMessage(entitiesLabel());
+        }).bounds(col0, tr1, bw, 20).build());
+
+        this.addRenderableWidget(Button.builder(liquidsLabel(), b -> {
+            ModConfig c = ConfigManager.get(); c.hideLiquids = !c.hideLiquids;
+            ConfigManager.save(); HideState.rebuildFromConfig(); b.setMessage(liquidsLabel());
+        }).bounds(col1, tr1, bw, 20).build());
 
         this.addRenderableWidget(Button.builder(underLabel(), b -> {
-            ModConfig c = ConfigManager.get();
-            c.showBlocksUnderneath = !c.showBlocksUnderneath;
-            ConfigManager.save();
-            HideState.rebuildFromConfig();
-            b.setMessage(underLabel());
-        }).bounds(panelLeft + 2 * (bw + gap), by, bw, 20).build());
+            ModConfig c = ConfigManager.get(); c.showBlocksUnderneath = !c.showBlocksUnderneath;
+            ConfigManager.save(); HideState.rebuildFromConfig(); b.setMessage(underLabel());
+        }).bounds(col0, tr2, bw, 20).build());
 
         this.addRenderableWidget(Button.builder(lightLabel(), b -> {
             ModConfig c = ConfigManager.get();
-            c.lightMode = switch (c.lightMode) {
-                case OFF -> ModConfig.LightMode.FULLBRIGHT;
-                case FULLBRIGHT -> ModConfig.LightMode.NIGHT_VISION;
-                case NIGHT_VISION -> ModConfig.LightMode.OFF;
-            };
-            ConfigManager.save();
-            HideState.rebuildFromConfig();
-            b.setMessage(lightLabel());
-        }).bounds(panelLeft + 3 * (bw + gap), by, bw, 20).build());
+            c.lightMode = (c.lightMode == ModConfig.LightMode.OFF)
+                    ? ModConfig.LightMode.FULLBRIGHT : ModConfig.LightMode.OFF;
+            ConfigManager.save(); HideState.rebuildFromConfig(); b.setMessage(lightLabel());
+        }).bounds(col1, tr2, bw, 20).build());
 
-        this.search = new EditBox(this.font, panelLeft, 58, 310, 18, Component.literal("Search"));
-        this.search.setHint(Component.literal("Search blocks by name…"));
+        // Hint + search + list, each clearly below the toggle grid (ends at 116).
+        this.hintY     = 122;
+        int searchY    = 134;              // 134 → ends 152
+        this.listTop   = 158;
+        this.listBottom = this.height - 36;
+
+        // ── Search ───────────────────────────────────────────────────────────
+        this.search = new EditBox(this.font, panelLeft, searchY, 310, 18, Component.literal("Search"));
+        this.search.setHint(Component.literal("Search blocks & liquids by name…"));
         this.search.setMaxLength(100);
         this.search.setResponder(s -> refresh());
         this.search.setVisible(!showInfo);
@@ -149,21 +189,30 @@ public class BlockManagerScreen extends Screen {
         refresh();
     }
 
+    // Toggle label: name + green ON / gray OFF for instant readability.
+    private static Component onOffLabel(String name, boolean on) {
+        return Component.literal(name + ": " + (on ? "§aON" : "§7OFF"));
+    }
+
     private Component filterLabel() {
-        return Component.literal("Filter: "
-                + (ConfigManager.get().filterMode == ModConfig.FilterMode.HIDE_LISTED ? "HIDE" : "SHOW"));
+        boolean hide = ConfigManager.get().filterMode == ModConfig.FilterMode.HIDE_LISTED;
+        return Component.literal(hide ? "Filter: §cHIDE listed" : "Filter: §bSHOW only listed");
     }
-    private Component modeLabel()  { return Component.literal("Mode: " + ConfigManager.get().triggerMode.name()); }
-    private Component underLabel() { return Component.literal("Underneath: " + onOff(ConfigManager.get().showBlocksUnderneath)); }
+    private Component modeLabel() {
+        boolean isToggle = ConfigManager.get().triggerMode == ModConfig.TriggerMode.TOGGLE;
+        return Component.literal(isToggle ? "Trigger: §eTOGGLE" : "Trigger: §eHOLD");
+    }
+    private Component entitiesLabel()  { return onOffLabel("Entities", ConfigManager.get().hideEntities); }
+    private Component liquidsLabel()   { return onOffLabel("Liquids",  ConfigManager.get().hideLiquids); }
+    private Component underLabel() {
+        // Underneath ON = keep neighbours rendered (green = "good/safe" default).
+        return Component.literal("Underneath: "
+                + (ConfigManager.get().showBlocksUnderneath ? "§aON" : "§7OFF"));
+    }
     private Component lightLabel() {
-        String s = switch (ConfigManager.get().lightMode) {
-            case OFF -> "OFF";
-            case FULLBRIGHT -> "FULL";
-            case NIGHT_VISION -> "NIGHT";
-        };
-        return Component.literal("Light: " + s);
+        return Component.literal(ConfigManager.get().lightMode == ModConfig.LightMode.OFF
+                ? "Light: §7OFF" : "Light: §eFULLBRIGHT");
     }
-    private static String onOff(boolean b) { return b ? "ON" : "OFF"; }
 
     private void refresh() {
         filtered.clear();
@@ -208,10 +257,14 @@ public class BlockManagerScreen extends Screen {
             return;
         }
 
+        // Section headers above each button group.
+        g.text(this.font, Component.literal("§7Filter mode"), panelLeft, filterHeaderY, 0xFFB0B0B0);
+        g.text(this.font, Component.literal("§7Hide also  §8(green = hidden)"), panelLeft, hideHeaderY, 0xFFB0B0B0);
+
         String hint = search.getValue().trim().isEmpty()
-                ? "Showing hidden blocks — type above to search & add more"
+                ? "Showing listed entries — type below to search & add more"
                 : filtered.size() + " match(es) — click a row to add/remove";
-        g.text(this.font, hint, panelLeft, 80, 0xFFA0A0A0);
+        g.text(this.font, hint, panelLeft, hintY, 0xFFA0A0A0);
 
         g.fill(panelLeft - 2, listTop - 2, panelRight + 2, listBottom + 2, 0x90000000);
 

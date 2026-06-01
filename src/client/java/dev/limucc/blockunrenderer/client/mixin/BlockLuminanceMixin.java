@@ -1,36 +1,29 @@
 package dev.limucc.blockunrenderer.client.mixin;
 
-import dev.limucc.blockunrenderer.client.config.ModConfig;
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import dev.limucc.blockunrenderer.client.render.HideState;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * FULLBRIGHT via the Meteor-style "Luminance" technique.
  *
- * Every block reports a light emission of 15 while FULLBRIGHT is active. The
- * renderer floors a face's block-light with the block's own getLightEmission()
- * (vanilla getLightColor does Math.max(storedBlockLight, state.getLightEmission());
- * Sodium does the same in its light pipeline). So EVERY visible face — including
- * the faces of blocks that were covered and had stored light 0 — renders at full
- * block light.
+ * Every block reports a light emission of 15 while FULLBRIGHT is active. The renderer floors a
+ * face's block-light with the block's own getLightEmission() (vanilla getLightColor does
+ * Math.max(storedBlockLight, state.getLightEmission()); Sodium does the same), so EVERY visible
+ * face — including covered faces that had stored light 0 — renders at full block light.
  *
- * No relight, no lightmap override, works for vanilla AND Sodium. Read live during
- * meshing, so it's effective immediately on the chunk re-mesh that toggling causes.
- * Zero cost when off (one boolean check).
+ * getLightEmission() is called per-block during meshing/lighting, so we use the zero-allocation
+ * {@link ModifyReturnValue} (no CallbackInfo per call). The map-sampling guard inside
+ * isLightActive()/the mixin keeps fake luminance out of Xaero's map sampling.
  */
 @Mixin(BlockBehaviour.BlockStateBase.class)
 public class BlockLuminanceMixin {
 
-    @Inject(method = "getLightEmission", at = @At("HEAD"), cancellable = true)
-    private void bur$fullbright(CallbackInfoReturnable<Integer> cir) {
-        // Don't feed fake luminance to map mods sampling the world (keeps Xaero's map true).
-        if (HideState.isMapSampling()) return;
-        if (HideState.isLightActive() && HideState.lightMode() == ModConfig.LightMode.FULLBRIGHT) {
-            cir.setReturnValue(15);
-        }
+    @ModifyReturnValue(method = "getLightEmission", at = @At("RETURN"))
+    private int bur$fullbright(int original) {
+        if (HideState.isMapSampling()) return original;
+        return HideState.isLightActive() ? 15 : original;
     }
 }

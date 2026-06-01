@@ -18,6 +18,7 @@
   },
   "mixins": [
     { "config": "block_unrenderer.client.mixins.json", "environment": "client" },
+    { "config": "block_unrenderer.compat.mixins.json", "environment": "client" },
     { "config": "block_unrenderer.xaero.mixins.json", "environment": "client" }
   ],
   "depends": {
@@ -25,7 +26,6 @@
     "minecraft":    "~26.1",
     "java":         ">=25",
     "fabric-api":   "*",
-    "modmenu":      "*",
-    "cloth-config": "*"
+    "modmenu":      "*"
   }
 }

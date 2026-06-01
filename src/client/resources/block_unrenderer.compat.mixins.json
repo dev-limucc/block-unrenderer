@@ -1,10 +1,9 @@
 {
   "required": false,
-  "package": "dev.limucc.blockunrenderer.client.mixin.xaero",
+  "package": "dev.limucc.blockunrenderer.client.mixin.compat",
   "compatibilityLevel": "JAVA_25",
   "client": [
-    "XaeroMinimapWriterMixin",
-    "XaeroWorldMapWriterMixin"
+    "SodiumFluidRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 0
