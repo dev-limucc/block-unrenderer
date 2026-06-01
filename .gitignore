@@ -29,3 +29,4 @@ run/
 .mrstatus
 .mrverify
 build_out.txt
+mr_version.json
