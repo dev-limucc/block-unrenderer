@@ -19,6 +19,9 @@ out/
 bin/
 .vscode/
 
+# Gallery media (kept local + on the Modrinth gallery, not in source control)
+screenshots/
+
 # OS
 .DS_Store
 Thumbs.db

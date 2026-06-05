@@ -27,6 +27,16 @@ public final class HideState {
     private HideState() {}
 
     private static volatile boolean active = false;
+
+    /**
+     * Server-side opt-in gate (Modrinth Content Rules section 3 — x-ray / seeing through opaque
+     * blocks requires a server opt-in). True in singleplayer, or in multiplayer only after the
+     * server sends an opt-in handshake. While this is false every hide decision below
+     * short-circuits to "don't hide", so the feature is completely inert on servers that have
+     * not opted in — no render path can hide anything.
+     */
+    private static volatile boolean allowed = false;
+
     private static volatile Set<Block> listed = new HashSet<>();
     private static volatile Set<Fluid> listedFluids = new HashSet<>();
     private static volatile boolean hasFluids = false;           // skip fluid mixin work when no fluids listed
@@ -62,18 +72,18 @@ public final class HideState {
     }
 
     // ── Hot path (mixins) ─────────────────────────────────────────────────────
-    // Each begins with the `active` volatile read; when off the JIT collapses this to a
-    // predictable-branch no-op with zero allocation.
+    // Each begins with the `active` + `allowed` volatile reads; when off (or not opted in) the
+    // JIT collapses this to a predictable-branch no-op with zero allocation.
 
     public static boolean shouldHide(Block block) {
-        if (!active) return false;
+        if (!active || !allowed) return false;
         if (isMapSampling()) return false;
         return targeted(block);
     }
 
     /** Hide a liquid (water/lava/modded). Matched by Fluid (covers waterlogged + flowing). */
     public static boolean shouldHideFluid(Fluid fluid) {
-        if (!active) return false;
+        if (!active || !allowed) return false;
         if (isMapSampling()) return false;
         // "Hide liquids" toggle hides every fluid regardless of the list.
         if (cfgHideLiquids) return true;
@@ -84,25 +94,25 @@ public final class HideState {
 
     /** Hide all entities while active (independent of the block list). */
     public static boolean shouldHideEntities() {
-        return active && cfgHideEntities && !isMapSampling();
+        return active && allowed && cfgHideEntities && !isMapSampling();
     }
 
     public static boolean shouldShowUnder(Block block) {
-        if (!active || !cfgShowUnder) return false;
+        if (!active || !allowed || !cfgShowUnder) return false;
         if (isMapSampling()) return false;
         return targeted(block);
     }
 
     /** Let skylight pass through this hidden block (when FULLBRIGHT is on). */
     public static boolean shouldPassLight(Block block) {
-        if (!active || !cfgLightFullbright) return false;
+        if (!active || !allowed || !cfgLightFullbright) return false;
         if (isMapSampling()) return false;
         return targeted(block);
     }
 
     /** True if a lighting boost should be applied now (read by the luminance mixin). */
     public static boolean isLightActive() {
-        if (!active || !cfgLightFullbright) return false;
+        if (!active || !allowed || !cfgLightFullbright) return false;
         // In SHOW_ONLY mode "the list" being empty still hides the whole world, so light is relevant.
         return !listEmpty || mode == ModConfig.FilterMode.SHOW_ONLY_LISTED;
     }
@@ -116,11 +126,25 @@ public final class HideState {
 
     public static boolean isActive() { return active; }
 
+    /** Whether the see-through feature is permitted right now (singleplayer, or server opted in). */
+    public static boolean isAllowed() { return allowed; }
+
     // ── State changes ─────────────────────────────────────────────────────────
 
     public static void setActive(boolean value) {
         if (value == active) return;
         active = value;
+        triggerChunkReload();
+    }
+
+    /**
+     * Server-side opt-in gate. Set true in singleplayer, or when the server sends the opt-in
+     * handshake; false on multiplayer servers that have not opted in, and on disconnect.
+     * A change re-meshes loaded chunks so the view updates immediately.
+     */
+    public static void setAllowed(boolean value) {
+        if (value == allowed) return;
+        allowed = value;
         triggerChunkReload();
     }
 

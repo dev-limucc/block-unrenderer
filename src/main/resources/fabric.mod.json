@@ -10,7 +10,7 @@
   },
   "license": "MIT",
   "icon": "assets/block_unrenderer/icon.png",
-  "environment": "client",
+  "environment": "*",
   "entrypoints": {
     "main":    ["dev.limucc.blockunrenderer.BlockUnRenderer"],
     "client":  ["dev.limucc.blockunrenderer.client.BlockUnRendererClient"],
@@ -25,7 +25,9 @@
     "fabricloader": ">=0.19.2",
     "minecraft":    "~26.1",
     "java":         ">=25",
-    "fabric-api":   "*",
-    "modmenu":      "*"
+    "fabric-api":   "*"
+  },
+  "suggests": {
+    "modmenu": "*"
   }
 }
