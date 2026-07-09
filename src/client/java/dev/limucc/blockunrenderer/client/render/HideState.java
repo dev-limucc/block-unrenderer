@@ -35,7 +35,8 @@ public final class HideState {
      * short-circuits to "don't hide", so the feature is completely inert on servers that have
      * not opted in — no render path can hide anything.
      */
-    private static volatile boolean allowed = false;
+    // no-server-optin build: gate starts open and can never be closed (see setAllowed).
+    private static volatile boolean allowed = true;
 
     private static volatile Set<Block> listed = new HashSet<>();
     private static volatile Set<Fluid> listedFluids = new HashSet<>();
@@ -138,14 +139,12 @@ public final class HideState {
     }
 
     /**
-     * Server-side opt-in gate. Set true in singleplayer, or when the server sends the opt-in
-     * handshake; false on multiplayer servers that have not opted in, and on disconnect.
-     * A change re-meshes loaded chunks so the view updates immediately.
+     * No-server-optin build: the see-through gate is permanently open and independent of any
+     * server opt-in handshake or disconnect, so the feature works on every server. This is a
+     * client-only visual build published on GitHub only (not Modrinth, which requires the gate).
      */
     public static void setAllowed(boolean value) {
-        if (value == allowed) return;
-        allowed = value;
-        triggerChunkReload();
+        // Intentionally a no-op: the gate stays open for the lifetime of the client.
     }
 
     public static void rebuildFromConfig() {
