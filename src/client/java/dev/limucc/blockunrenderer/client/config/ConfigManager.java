@@ -2,7 +2,7 @@ package dev.limucc.blockunrenderer.client.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import dev.limucc.blockunrenderer.BlockUnRenderer;
+import dev.limucc.blockunrenderer.client.BlockUnRendererClient;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.*;
@@ -25,7 +25,7 @@ public class ConfigManager {
             ModConfig loaded = GSON.fromJson(r, ModConfig.class);
             instance = (loaded != null) ? loaded : new ModConfig();
         } catch (IOException e) {
-            BlockUnRenderer.LOGGER.error("Failed to load config.", e);
+            BlockUnRendererClient.LOGGER.error("Failed to load config.", e);
             instance = new ModConfig();
         }
     }
@@ -34,7 +34,7 @@ public class ConfigManager {
         try (Writer w = Files.newBufferedWriter(CONFIG_PATH)) {
             GSON.toJson(instance, w);
         } catch (IOException e) {
-            BlockUnRenderer.LOGGER.error("Failed to save config.", e);
+            BlockUnRendererClient.LOGGER.error("Failed to save config.", e);
         }
     }
 }
