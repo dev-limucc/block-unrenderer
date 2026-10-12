@@ -2,7 +2,7 @@
 
 [![build](https://github.com/dev-limucc/block-unrenderer/actions/workflows/build.yml/badge.svg)](https://github.com/dev-limucc/block-unrenderer/actions/workflows/build.yml)
 
-A lightweight, **Sodium-compatible** Fabric client mod for **Minecraft 26.1.2** that instantly
+A lightweight, **Sodium-compatible** Fabric client mod for **Minecraft 26.3** that instantly
 hides chosen blocks, block entities, liquids and entities — with a keybind, no world reload, and
 near-zero performance cost.
 
@@ -41,10 +41,10 @@ near-zero performance cost.
 
 | | |
 |---|---|
-| Minecraft | 26.1.2 |
-| Fabric Loader | 0.19.2+ |
+| Minecraft | 26.3 |
+| Fabric Loader | 0.19.3+ |
 | Fabric API | * |
-| ModMenu | 18.x — optional (in-game config UI) |
+| ModMenu | 20.x — optional (in-game config UI) |
 
 ## Usage
 
@@ -54,22 +54,15 @@ near-zero performance cost.
    **Entities** toggles for those whole categories.
 4. Bind a key under **Options → Controls → Block UN-renderer** and press it to hide/show.
 
-## Multiplayer & servers (see-through opt-in)
+## Client-only and multiplayer use
 
-Because hiding blocks lets you see through them, the feature follows **[Modrinth's content
-rules](https://modrinth.com/legal/rules)**: it is only active where it can't be an unfair
-multiplayer advantage.
+This is a **client-only** mod: it does not install server code, send a handshake, or require the
+server to have the mod installed. Its rendering filter can be used in singleplayer or while
+connected to a server. It only changes what your client renders and does not change world or block
+data on the server.
 
-- **Singleplayer / your own world** — always available.
-- **Multiplayer** — **off by default**, and only enabled if the **server opts in**.
-
-A server opts in by installing this mod on the **server** side and setting `allowSeeThrough` to
-`true` in `config/block-unrenderer-server.json` (created automatically, default `false`). When
-enabled, the server sends a small opt-in handshake to clients on join and the feature unlocks for
-them. On vanilla servers — or any server that hasn't opted in — the feature stays disabled, and
-pressing the toggle there just shows a *"disabled — the server has not opted in"* message.
-
-This is purely a visual client mod: it never changes the world or block data on the server.
+Hiding blocks can reveal information that is normally occluded, so **check and follow each server's
+rules before using it**. Client-only compatibility does not mean every server permits the mod.
 
 ## How it works
 

@@ -55,7 +55,7 @@ public class BlockManagerScreen extends Screen {
             "",
             "§7Works with & without Sodium. No cost when hiding is off.",
             "§7Doesn't distort Xaero's minimap / world map.",
-            "§7For singleplayer / servers you own. Not for unfair PvP."
+            "§7Client-side visual filter. Check server rules before use."
     };
 
     private final Screen parent;
