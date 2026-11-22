@@ -1,9 +1,59 @@
-plugins {
-    id 'net.fabricmc.fabric-loom' version "${loom_version}"
-    id 'maven-publish'
+// Two Loom plugins exist since MC went unobfuscated: classic remapping Loom for 1.21.x
+// ('net.fabricmc.fabric-loom-remap') and the new non-remapping Loom for 26.1+
+// ('net.fabricmc.fabric-loom'). The plugins{} block can't choose conditionally, so we
+// resolve + apply by hand based on -Ptarget.
+buildscript {
+    repositories {
+        maven { url = 'https://maven.fabricmc.net/' }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        def tv = (project.findProperty('target') ?: '26.2').toString()
+        if (tv.startsWith('1.')) {
+            classpath "net.fabricmc.fabric-loom-remap:net.fabricmc.fabric-loom-remap.gradle.plugin:${project.legacy_loom_version}"
+        } else {
+            classpath "net.fabricmc.fabric-loom:net.fabricmc.fabric-loom.gradle.plugin:${project.loom_version}"
+        }
+    }
 }
 
-version = project.mod_version
+apply plugin: 'maven-publish'
+apply plugin: ((findProperty('target') ?: '26.2').toString().startsWith('1.')
+        ? 'net.fabricmc.fabric-loom-remap'
+        : 'net.fabricmc.fabric-loom')
+
+// ---- multi-version target matrix --------------------------------------------
+// Build one MC target with:  gradlew build -Ptarget=<key> [-Pvariant=secure|nopermission]   (default: 26.2, secure)
+// Each jar covers the 'range' it declares in fabric.mod.json.
+def TARGETS = [
+    '26.1.2': [range: '~26.1', fapi: '0.150.0+26.1.2', modmenu: '18.0.0-beta.1', java: 25, legacy: false, loaderReq: '>=0.19.2',
+               sodium: 'mc26.1.2-0.9.2-fabric', xmini: 'fabric-26.1.2-26.6.2', xmap: 'fabric-26.1.2-1.47.2',
+               overlays: ['nav-legacy', 'reload-legacy', 'lightmap-261']],
+    '26.2':   [range: '~26.2', fapi: '0.154.2+26.2',   modmenu: '20.0.0',        java: 25, legacy: false, loaderReq: '>=0.19.3',
+               sodium: 'mc26.2-0.9.2-fabric', xmini: 'fabric-26.2-26.6.2', xmap: 'fabric-26.2-1.47.2',
+               overlays: ['nav-262', 'reload-262', 'lightmap-262']],
+    '26.3':   [range: '~26.3', fapi: '0.165.2+26.3',   modmenu: '21.0.0',        java: 25, legacy: false, loaderReq: '>=0.20.1', loader: '0.20.1',
+               sodium: 'mc26.3-0.9.3-beta.1-fabric', xmini: 'fabric-26.3-26.6.2', xmap: 'fabric-26.3-1.47.2',
+               overlays: ['nav-262', 'reload-262', 'lightmap-263']],
+]
+
+// ---- build variants ----------------------------------------------------------
+//  secure       (default) see-through needs the server opt-in in multiplayer (Modrinth Content Rules section 3). -> Modrinth.
+//  nopermission see-through works everywhere without any server opt-in. -> GitHub release only.
+// Same codebase: the variant is a generated compile-time constant (BuildVariant.NO_PERMISSION) + jar classifier.
+def VARIANTS = ['secure', 'nopermission']
+def variant = (findProperty('variant') ?: 'secure').toString()
+if (!VARIANTS.contains(variant)) throw new GradleException("Unknown -Pvariant=${variant}. Known variants: ${VARIANTS}")
+def noPermission = variant == 'nopermission'
+
+def targetVer = (findProperty('target') ?: '26.2').toString()
+def t = TARGETS[targetVer]
+if (t == null) throw new GradleException("Unknown -Ptarget=${targetVer}. Known targets: ${TARGETS.keySet()}")
+
+def loaderVer = (t.loader ?: project.loader_version).toString()
+
+version = "${project.mod_version}+mc${targetVer}"
 group   = project.maven_group
 
 base {
@@ -21,41 +71,132 @@ loom {
     }
 }
 
+// Client gametest (runClientGameTest): src/gametest. Never packaged into the release jar.
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = "block_unrenderer-test"
+        enableGameTests = false
+        enableClientGameTests = true
+        eula = true
+    }
+}
+
+// dev convenience:  gradlew runClient "-PquickPlay=New World"  auto-joins that singleplayer save
+if (findProperty('quickPlay')) {
+    loom.runs.client.programArgs('--quickPlaySingleplayer', findProperty('quickPlay').toString())
+    loom.runs.client.programArgs('--username', 'BurDev')
+}
+
+// ---- production run: launches the BUILT release jar (plus Fabric API + Mod Menu [+ extra mods]) in a vanilla-style client ----
+//   gradlew runProductionClient "-Ptarget=26.3" ["-Pvariant=nopermission"] ["-PprodWorld=<save folder>"] ["-PprodExtra=<dir of extra mod jars>"]
+configurations {
+    prodMods {
+        transitive = false
+        canBeConsumed = false
+    }
+}
+
+tasks.register('runProductionClient', net.fabricmc.loom.task.prod.ClientProductionRunTask) {
+    group = 'fabric'
+    description = 'Launch the built jar in a production (non-dev) client'
+    mods.from(tasks.named('jar'))
+    mods.from(configurations.prodMods)
+    if (findProperty('prodExtra')) {
+        mods.from(fileTree(findProperty('prodExtra').toString()) { include '*.jar' })
+    }
+    runDir = layout.projectDirectory.dir('run/prod')
+    minecraftVersion = targetVer
+    if (findProperty('prodWorld')) {
+        programArgs.addAll('--quickPlaySingleplayer', findProperty('prodWorld').toString())
+    }
+}
+
+// version-specific source overlays (screen navigation, chunk reload, lightmap render API)
+t.overlays.each { sourceSets.client.java.srcDir "src/client/versions/${it}/java" }
+t.overlays.each { def rd = file("src/client/versions/${it}/resources"); if (rd.exists()) sourceSets.client.resources.srcDir rd }
+
+// generated BuildVariant constant (main source set, visible to the client source set)
+def genDir = layout.buildDirectory.dir("generated/variant-${variant}/java")
+def genVariant = tasks.register('generateBuildVariant') {
+    inputs.property('variant', variant)
+    outputs.dir(genDir)
+    doLast {
+        def f = genDir.get().file('dev/limucc/blockunrenderer/BuildVariant.java').asFile
+        f.parentFile.mkdirs()
+        f.text = """package dev.limucc.blockunrenderer;
+
+/** Generated by build.gradle (-Pvariant=${variant}). Do not edit. */
+public final class BuildVariant {
+    private BuildVariant() {}
+
+    /** True in the 'nopermission' build: see-through works without any server opt-in. */
+    public static final boolean NO_PERMISSION = ${noPermission};
+    public static final String NAME = "${variant}";
+}
+"""
+    }
+}
+sourceSets.main.java.srcDir(genDir)
+tasks.named('compileJava') { dependsOn genVariant }
+tasks.matching { it.name == 'sourcesJar' || it.name == 'compileClientJava' }.configureEach { dependsOn genVariant }
+
 repositories {
     mavenCentral()
-    maven { url = "https://maven.terraformersmc.com/releases" }
+    maven { url = "https://api.modrinth.com/maven" }
 }
 
 dependencies {
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-    implementation "com.terraformersmc:modmenu:${project.modmenu_version}"
+    prodMods "net.fabricmc.fabric-api:fabric-api:${t.fapi}"
+    prodMods "maven.modrinth:modmenu:${t.modmenu}"
+    minecraft "com.mojang:minecraft:${targetVer}"
+
+    implementation "net.fabricmc:fabric-loader:${loaderVer}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${t.fapi}"
+    implementation "maven.modrinth:modmenu:${t.modmenu}"
+
+    // Optional compat mods for dev/gametest runs only:  -Psodium=1  -Pxaero=1   (never shipped; the mod soft-mixins into them)
+    if (findProperty('sodium')) runtimeOnly "maven.modrinth:sodium:${t.sodium}"
+    if (findProperty('xaero')) {
+        runtimeOnly "maven.modrinth:xaeros-minimap:${t.xmini}"
+        runtimeOnly "maven.modrinth:xaeros-world-map:${t.xmap}"
+    }
 
     // MixinExtras: @ModifyReturnValue gives zero-allocation hot-path injections.
-    // Fabric Loader 0.19.2 bundles MixinExtras at runtime, so we only need it at compile time.
+    // Fabric Loader bundles MixinExtras at runtime, so we only need it at compile time.
     compileOnly "io.github.llamalad7:mixinextras-fabric:${project.mixinextras_version}"
     annotationProcessor "io.github.llamalad7:mixinextras-fabric:${project.mixinextras_version}"
 }
 
 processResources {
-    def version = project.version
-    inputs.property "version", version
+    def props = [
+        version   : project.version.toString(),
+        mc_range  : t.range,
+        java_req  : t.java.toString(),
+        loader_req: t.loaderReq,
+        mod_name  : noPermission ? 'Block UN-renderer (no-permission build)' : 'Block UN-renderer',
+        mod_desc  : noPermission
+                ? 'Instantly hide any block or block entity client-side with a keybind. Sodium compatible. This build works on every server without a server opt-in.'
+                : 'Instantly hide any block or block entity client-side with a keybind. Sodium compatible.',
+    ]
+    inputs.properties props
     filesMatching("fabric.mod.json") {
-        expand "version": version
+        expand props
     }
 }
 
 tasks.withType(JavaCompile).configureEach {
-    it.options.release = 25
+    it.options.release = t.java
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_25
-    targetCompatibility = JavaVersion.VERSION_25
+    sourceCompatibility = JavaVersion.toVersion(t.java)
+    targetCompatibility = JavaVersion.toVersion(t.java)
 }
 
 jar {
+    // block-unrenderer-<ver>+mc<target>[-nopermission].jar
+    if (noPermission) archiveClassifier = 'nopermission'
     from("LICENSE") {
         rename { "${it}_${project.base.archivesName.get()}" }
     }

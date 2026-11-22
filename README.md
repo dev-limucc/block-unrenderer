@@ -2,7 +2,7 @@
 
 [![build](https://github.com/dev-limucc/block-unrenderer/actions/workflows/build.yml/badge.svg)](https://github.com/dev-limucc/block-unrenderer/actions/workflows/build.yml)
 
-A lightweight, **Sodium-compatible** Fabric client mod for **Minecraft 26.1.2** that instantly
+A lightweight, **Sodium-compatible** Fabric client mod for **Minecraft 26.1.2 / 26.2 / 26.3** that instantly
 hides chosen blocks, block entities, liquids and entities — with a keybind, no world reload, and
 near-zero performance cost.
 
@@ -41,10 +41,10 @@ near-zero performance cost.
 
 | | |
 |---|---|
-| Minecraft | 26.1.2 |
-| Fabric Loader | 0.19.2+ |
+| Minecraft | 26.1.2, 26.2 or 26.3 (one jar per version) |
+| Fabric Loader | 0.19.2+ (0.19.3+ for 26.2, 0.20.1+ for 26.3) |
 | Fabric API | * |
-| ModMenu | 18.x — optional (in-game config UI) |
+| Mod Menu | optional (in-game config UI) |
 
 ## Usage
 
@@ -70,6 +70,15 @@ them. On vanilla servers — or any server that hasn't opted in — the feature 
 pressing the toggle there just shows a *"disabled — the server has not opted in"* message.
 
 This is purely a visual client mod: it never changes the world or block data on the server.
+
+### Build variants
+
+The same source builds two jars per Minecraft version:
+
+- `block-unrenderer-<version>+mc<mc>.jar` — the **secure** build (the one on Modrinth): see-through needs the server opt-in in multiplayer, as described above.
+- `block-unrenderer-<version>+mc<mc>-nopermission.jar` — the **no-permission** build (GitHub releases only): see-through works on every server without an opt-in. Use it only where you are allowed to.
+
+Build one with `gradlew build "-Ptarget=26.3" ["-Pvariant=nopermission"]`.
 
 ## How it works
 

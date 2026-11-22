@@ -33,3 +33,6 @@ run/
 .mrverify
 build_out.txt
 mr_version.json
+
+# Collected release jars
+dist/

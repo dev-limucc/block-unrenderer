@@ -2,6 +2,8 @@ package dev.limucc.blockunrenderer.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.limucc.blockunrenderer.BlockUnRenderer;
+import dev.limucc.blockunrenderer.BuildVariant;
+import dev.limucc.blockunrenderer.client.compat.ScreenNav;
 import dev.limucc.blockunrenderer.client.config.ConfigManager;
 import dev.limucc.blockunrenderer.client.config.ModConfig;
 import dev.limucc.blockunrenderer.client.gui.BlockManagerScreen;
@@ -27,7 +29,6 @@ public class BlockUnRendererClient implements ClientModInitializer {
     /** Open the Block Manager GUI directly. Unbound by default. */
     public static KeyMapping OPEN_KEY;
 
-    private static boolean toggledOn = false;
 
     @Override
     public void onInitializeClient() {
@@ -39,13 +40,21 @@ public class BlockUnRendererClient implements ClientModInitializer {
         // multiplayer when the server explicitly opts in by sending the handshake. Until then
         // HideState.allowed stays false and nothing is hidden.
         ClientPlayNetworking.registerGlobalReceiver(OptInPayload.TYPE, (payload, context) ->
-                context.client().execute(() -> HideState.setAllowed(true)));
+                context.client().execute(() -> {
+                    HideState.setAllowed(true);
+                    BlockUnRenderer.LOGGER.info("[Block UN-renderer] server opt-in received: see-through ALLOWED on this server");
+                }));
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             if (client.hasSingleplayerServer()) {
                 HideState.setAllowed(true);   // your own world — allowed
+                BlockUnRenderer.LOGGER.info("[Block UN-renderer] singleplayer world: see-through ALLOWED");
+            } else if (BuildVariant.NO_PERMISSION) {
+                BlockUnRenderer.LOGGER.info("[Block UN-renderer] multiplayer, no-permission build: see-through ALLOWED without a server opt-in");
+            } else {
+                // multiplayer: remains disabled until the server sends an opt-in handshake
+                BlockUnRenderer.LOGGER.info("[Block UN-renderer] multiplayer: see-through DISABLED until the server opts in");
             }
-            // multiplayer: remains disabled until the server sends an opt-in handshake
         });
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
@@ -64,6 +73,9 @@ public class BlockUnRendererClient implements ClientModInitializer {
                 // isDown() is false while the key is unbound, so this is a safe no-op until bound.
                 // The HideState gate keeps this inert when the server has not opted in.
                 HideState.setActive(TOGGLE_KEY.isDown());
+                // Discard queued presses: they belong to HOLD mode and must not toggle the state later, after the
+                // player switches the trigger mode back to TOGGLE.
+                while (TOGGLE_KEY.consumeClick()) { /* discard */ }
             } else {
                 while (TOGGLE_KEY.consumeClick()) {
                     if (!HideState.isAllowed()) {
@@ -73,24 +85,25 @@ public class BlockUnRendererClient implements ClientModInitializer {
                         }
                         continue;
                     }
-                    toggledOn = !toggledOn;
-                    HideState.setActive(toggledOn);
+                    boolean nowActive = !HideState.isActive();   // the real state is the source of truth (HOLD mode / GUI may have changed it)
+                    HideState.setActive(nowActive);
                     if (mc.player != null) {
                         mc.player.sendOverlayMessage(Component.literal(
-                                "Block UN-renderer: " + (toggledOn ? "§aHIDDEN" : "§cVISIBLE")));
+                                "Block UN-renderer: " + (nowActive ? "§aHIDDEN" : "§cVISIBLE")));
                     }
                 }
             }
 
             // Open the GUI with the dedicated key
             while (OPEN_KEY.consumeClick()) {
-                if (mc.gui.screen() == null) {
-                    mc.gui.setScreen(new BlockManagerScreen(null));
+                if (ScreenNav.current(mc) == null) {
+                    ScreenNav.open(mc, new BlockManagerScreen(null));
                 }
             }
         });
 
         BlockUnRenderer.LOGGER.info(
-                "Block UN-renderer client ready. Bind keys under Options → Controls → Block UN-renderer.");
+                "Block UN-renderer client ready (variant: {}). Bind keys under Options → Controls → Block UN-renderer.",
+                BuildVariant.NAME);
     }
 }

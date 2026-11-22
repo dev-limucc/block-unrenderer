@@ -1,5 +1,7 @@
 package dev.limucc.blockunrenderer.client.gui;
 
+import com.mojang.blaze3d.platform.InputConstants;
+import dev.limucc.blockunrenderer.client.compat.ScreenNav;
 import dev.limucc.blockunrenderer.client.config.ConfigManager;
 import dev.limucc.blockunrenderer.client.config.ModConfig;
 import dev.limucc.blockunrenderer.client.render.HideState;
@@ -305,7 +307,7 @@ public class BlockManagerScreen extends Screen {
         if (super.mouseClicked(event, doubleClick)) return true;
         if (showInfo) return false;
         double mx = event.x(), my = event.y();
-        if (event.button() == 0 && mx >= panelLeft && mx <= panelRight && my >= listTop && my < listBottom) {
+        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && mx >= panelLeft && mx <= panelRight && my >= listTop && my < listBottom) {
             int idx = (int) ((my - listTop + scroll) / ROW_H);
             if (idx >= 0 && idx < filtered.size()) { toggle(filtered.get(idx)); return true; }
         }
@@ -328,6 +330,6 @@ public class BlockManagerScreen extends Screen {
     public void onClose() {
         ConfigManager.save();
         HideState.rebuildFromConfig();
-        this.minecraft.gui.setScreen(this.parent);
+        ScreenNav.open(this.minecraft, this.parent);
     }
 }

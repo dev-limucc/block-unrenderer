@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "id": "block_unrenderer",
   "version": "${version}",
-  "name": "Block UN-renderer",
-  "description": "Instantly hide any block or block entity client-side with a keybind. Sodium compatible.",
+  "name": "${mod_name}",
+  "description": "${mod_desc}",
   "authors": ["Limucc-dev"],
   "contact": {
     "sources": "https://github.com/dev-limucc/block-unrenderer"
@@ -22,9 +22,9 @@
     { "config": "block_unrenderer.xaero.mixins.json", "environment": "client" }
   ],
   "depends": {
-    "fabricloader": ">=0.19.3",
-    "minecraft":    "~26.2",
-    "java":         ">=25",
+    "fabricloader": "${loader_req}",
+    "minecraft":    "${mc_range}",
+    "java":         ">=${java_req}",
     "fabric-api":   "*"
   },
   "suggests": {

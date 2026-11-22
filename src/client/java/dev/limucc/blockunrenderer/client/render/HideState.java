@@ -1,5 +1,7 @@
 package dev.limucc.blockunrenderer.client.render;
 
+import dev.limucc.blockunrenderer.BuildVariant;
+import dev.limucc.blockunrenderer.client.compat.ChunkReload;
 import dev.limucc.blockunrenderer.client.config.ConfigManager;
 import dev.limucc.blockunrenderer.client.config.ModConfig;
 import net.minecraft.client.Minecraft;
@@ -35,7 +37,7 @@ public final class HideState {
      * short-circuits to "don't hide", so the feature is completely inert on servers that have
      * not opted in — no render path can hide anything.
      */
-    private static volatile boolean allowed = false;
+    private static volatile boolean allowed = BuildVariant.NO_PERMISSION;
 
     private static volatile Set<Block> listed = new HashSet<>();
     private static volatile Set<Fluid> listedFluids = new HashSet<>();
@@ -143,6 +145,8 @@ public final class HideState {
      * A change re-meshes loaded chunks so the view updates immediately.
      */
     public static void setAllowed(boolean value) {
+        // The 'nopermission' build never needs (or loses) the permission: see-through is always allowed.
+        if (BuildVariant.NO_PERMISSION) value = true;
         if (value == allowed) return;
         allowed = value;
         triggerChunkReload();
@@ -175,8 +179,8 @@ public final class HideState {
 
     private static void triggerChunkReload() {
         Minecraft mc = Minecraft.getInstance();
-        if (mc != null && mc.levelExtractor != null && mc.level != null) {
-            mc.execute(() -> mc.levelExtractor.allChanged());
+        if (mc != null && mc.level != null) {
+            mc.execute(() -> ChunkReload.allChanged(mc));
         }
     }
 }
